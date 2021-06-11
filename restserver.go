@@ -1,4 +1,4 @@
-package rest_server
+package restserver
 
 import (
 	"encoding/json"
@@ -12,26 +12,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-type RestServerContext struct {
-	ContentType string
-	StatusCode  int
-}
-
-type RestResponse struct {
-	Status      bool        `json:"status"`
-	Description interface{} `json:"description"`
-	Response    interface{} `json:"response"`
-}
-
-type RestServerError struct {
-	StatusCode  int
-	Description string
-}
-
-func (e *RestServerError) Error() string {
-	return fmt.Sprintf("parse %v: internal error", e.Description)
-}
 
 func CallMethod2(controller interface{}, method reflect.Method, params map[string]interface{}, context *RestServerContext) (result reflect.Value, err error) {
 	function := reflect.ValueOf(method.Func.Interface())
@@ -117,41 +97,6 @@ func CallMethod(controller interface{}, methodName string, params map[string]int
 	}
 	Error(500, "Method not found")
 	return
-}
-
-func ErrorMessage(rw http.ResponseWriter, r *http.Request) {
-	rw.Header().Add("Content-Type", "application/json")
-
-	if err := recover(); err != nil {
-		switch e := err.(type) {
-		case *RestServerError:
-			if e.StatusCode == 0 {
-				rw.WriteHeader(500)
-			} else {
-				rw.WriteHeader(e.StatusCode)
-			}
-
-			responseData := RestResponse{Status: false, Description: e.Description}
-			finalData, _ := json.Marshal(responseData)
-			fmt.Fprintf(rw, "%+v", string(finalData))
-		case error:
-			rw.WriteHeader(500)
-
-			responseData := RestResponse{Status: false, Description: e.Error()}
-			finalData, _ := json.Marshal(responseData)
-			fmt.Fprintf(rw, "%+v", string(finalData))
-		default:
-			rw.WriteHeader(500)
-
-			responseData := RestResponse{Status: false, Description: e}
-			finalData, _ := json.Marshal(responseData)
-			fmt.Fprintf(rw, "%+v", string(finalData))
-		}
-	}
-}
-
-func Error(code int, description string) {
-	panic(&RestServerError{StatusCode: code, Description: description})
 }
 
 func FileExists(filename string) bool {

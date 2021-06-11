@@ -1,0 +1,9 @@
+{
+  "name": "restserver",
+  "version": "1.0.0",
+  "description": "Go Rest Server",
+  "main": "index.js",
+  "keywords": [],
+  "author": "Maldan",
+  "license": "Mit"
+}

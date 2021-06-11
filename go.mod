@@ -1,3 +1,3 @@
-module github.com/maldan/go-rest_server
+module github.com/maldan/go-restserver
 
 go 1.16
