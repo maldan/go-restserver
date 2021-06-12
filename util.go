@@ -1,6 +1,8 @@
 package restserver
 
-import "os"
+import (
+	"os"
+)
 
 func fileExists(filename string) bool {
 	info, err := os.Stat(filename)
@@ -11,6 +13,10 @@ func fileExists(filename string) bool {
 }
 
 func getFile(path string) *os.File {
+	if path[len(path)-1] == '/' {
+		path += "index.html"
+	}
+
 	if fileExists(path) {
 		f, err := os.Open(path)
 		if err != nil {

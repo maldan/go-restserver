@@ -108,6 +108,73 @@ func CallMethod(controller interface{}, methodName string, params map[string]int
 	return
 }
 
+func VirtualFileHandler(rw http.ResponseWriter, r *http.Request, fs VirtualFs) {
+	defer ErrorMessage(rw, r)
+
+	// Fuck cors
+	rw.Header().Add("Access-Control-Allow-Origin", "*")
+	rw.Header().Add("Access-Control-Allow-Methods", "*")
+	rw.Header().Add("Access-Control-allow-Headers", "*")
+
+	// Fuck options
+	if r.Method == "OPTIONS" {
+		rw.WriteHeader(200)
+		fmt.Fprintf(rw, "")
+		return
+	}
+
+	// Check file and return if found
+	finalPath := strings.ReplaceAll(r.URL.Path, "//", "/")
+	if finalPath[len(finalPath)-1] == '/' {
+		finalPath += "index.html"
+	}
+
+	file, err := fs.Open(finalPath)
+
+	if err == nil {
+		// stat, _ := file.Stat()
+
+		// Get file header
+		buffer := make([]byte, 1024*1024*4)
+		totalSize, err := file.Read(buffer)
+		if err != nil {
+			Error(500, "Can't read file")
+		}
+
+		// Detect content type
+		contentType := http.DetectContentType(buffer)
+		ext := path.Ext(r.URL.Path)
+		if contentType == "application/octet-stream" {
+			if ext == ".md" || ext == ".go" || ext == ".txt" {
+				contentType = "text/plain; charset=utf-8"
+			}
+			if ext == ".html" {
+				contentType = "text/html; charset=utf-8"
+			}
+			if ext == ".css" {
+				contentType = "text/css; charset=utf-8"
+			}
+			if ext == ".js" {
+				contentType = "text/javascript; charset=utf-8"
+			}
+			if ext == ".json" {
+				contentType = "application/json; charset=utf-8"
+			}
+		}
+
+		// Set headers
+		rw.Header().Add("Content-Type", contentType)
+		rw.Header().Add("Content-Length", fmt.Sprintf("%d", totalSize))
+
+		// Stream file
+		// io.Copy(rw, file)
+		rw.Write(buffer[0:totalSize])
+		return
+	} else {
+		Error(404, "File not found")
+	}
+}
+
 func FileHandler(rw http.ResponseWriter, r *http.Request, folderPath string) {
 	defer ErrorMessage(rw, r)
 
@@ -124,7 +191,7 @@ func FileHandler(rw http.ResponseWriter, r *http.Request, folderPath string) {
 	}
 
 	// Check file and return if found
-	file := getFile(folderPath + r.URL.Path)
+	file := getFile(strings.ReplaceAll(folderPath+r.URL.Path, "//", "/"))
 	if file != nil {
 		stat, _ := file.Stat()
 
@@ -140,8 +207,20 @@ func FileHandler(rw http.ResponseWriter, r *http.Request, folderPath string) {
 		contentType := http.DetectContentType(buffer)
 		ext := path.Ext(r.URL.Path)
 		if contentType == "application/octet-stream" {
-			if ext == ".md" || ext == ".go" {
+			if ext == ".md" || ext == ".go" || ext == ".txt" {
 				contentType = "text/plain; charset=utf-8"
+			}
+			if ext == ".html" {
+				contentType = "text/html; charset=utf-8"
+			}
+			if ext == ".css" {
+				contentType = "text/css; charset=utf-8"
+			}
+			if ext == ".js" {
+				contentType = "text/javascript; charset=utf-8"
+			}
+			if ext == ".json" {
+				contentType = "application/json; charset=utf-8"
 			}
 		}
 
@@ -255,10 +334,15 @@ func Start(addr string, routers map[string]interface{}) {
 			}
 		}
 
+		// Set veritual fs
+		if reflect.TypeOf(route).Kind() == reflect.Struct {
+			VirtualFileHandler(rw, r, route.(VirtualFs))
+			return
+		}
+
 		// Set file handler
 		if reflect.TypeOf(route).Kind() == reflect.String {
 			folderPath := strings.ReplaceAll(strings.ReplaceAll(dir+"/"+route.(string), "\\", "/"), "//", "/")
-			fmt.Println(folderPath)
 			FileHandler(rw, r, folderPath)
 			return
 		}
@@ -267,6 +351,7 @@ func Start(addr string, routers map[string]interface{}) {
 		if reflect.TypeOf(route).Kind() == reflect.Map {
 			controller := route.(map[string]interface{})
 			ApiHandler(rw, r, most, controller)
+			return
 		}
 	})
 
