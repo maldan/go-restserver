@@ -2,6 +2,7 @@ package restserver
 
 import (
 	"os"
+	"unicode"
 )
 
 func fileExists(filename string) bool {
@@ -26,4 +27,11 @@ func getFile(path string) *os.File {
 		return f
 	}
 	return nil
+}
+
+func lowerFirst(str string) string {
+	for i, v := range str {
+		return string(unicode.ToLower(v)) + str[i+1:]
+	}
+	return ""
 }

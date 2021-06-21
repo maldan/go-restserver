@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func CallMethod2(controller interface{}, method reflect.Method, params map[string]interface{}, context *RestServerContext) (result reflect.Value, err error) {
@@ -21,13 +22,20 @@ func CallMethod2(controller interface{}, method reflect.Method, params map[strin
 	if functionType.NumIn() == 1 {
 		in := make([]reflect.Value, 1)
 		in[0] = reflect.ValueOf(controller)
-		result = function.Call(in)[0]
+		r := function.Call(in)
+		if len(r) > 0 {
+			result = function.Call(in)[0]
+		} else {
+			result = reflect.ValueOf("")
+		}
+
 		return
 	}
 
 	firstArgument := functionType.In(1)
 	args := reflect.New(firstArgument).Interface()
 	s := reflect.ValueOf(args).Elem()
+	ss := reflect.TypeOf(args).Elem()
 
 	if s.Kind() == reflect.Struct {
 		// Fill context
@@ -38,59 +46,101 @@ func CallMethod2(controller interface{}, method reflect.Method, params map[strin
 			}
 		}
 
-		for k, v := range params {
-			f := s.FieldByName(strings.Title(k))
+		// Go over fields
+		amount := s.NumField()
+		for i := 0; i < amount; i++ {
+			field := s.Field(i)
+			fieldName := ss.Field(i).Name
+			fieldTag := ss.Field(i).Tag
+			isRequired := fieldTag.Get("validation") == "required"
 
-			if f.IsValid() {
-				if f.CanSet() {
+			// Can change field
+			if field.IsValid() {
+				if field.CanSet() {
+					// Get value
+					v, ok := params[lowerFirst(fieldName)]
+					if !ok {
+						v = ""
+					}
+
+					// Check
+					if reflect.ValueOf(v).IsZero() && isRequired {
+						Error(500, ErrorType.EmptyField, fieldName, fieldName+" is required")
+					}
+
 					// Fill string types
-					if f.Kind() == reflect.String && reflect.TypeOf(v).Kind() == reflect.String {
-						f.SetString(v.(string))
+					if field.Kind() == reflect.String && reflect.TypeOf(v).Kind() == reflect.String {
+						field.SetString(v.(string))
 					}
 
 					// Fill int types
-					if f.Kind() == reflect.Int64 {
+					if field.Kind() == reflect.Int64 {
 						// From int
 						if reflect.TypeOf(v).Kind() == reflect.Int64 {
-							f.SetInt(v.(int64))
+							field.SetInt(v.(int64))
 						}
 						// From string
 						if reflect.TypeOf(v).Kind() == reflect.String {
 							i, _ := strconv.ParseInt(v.(string), 10, 64)
-							f.SetInt(i)
+							field.SetInt(i)
 						}
 					}
 
-					// Fill int types
-					if f.Kind() == reflect.Bool {
+					// Fill bool
+					if field.Kind() == reflect.Bool {
 						// From int
 						if reflect.TypeOf(v).Kind() == reflect.Bool {
-							f.SetBool(v.(bool))
+							field.SetBool(v.(bool))
 						}
 						// From string
 						if reflect.TypeOf(v).Kind() == reflect.String {
 							if v.(string) == "true" {
-								f.SetBool(true)
+								field.SetBool(true)
 							} else {
-								f.SetBool(false)
+								field.SetBool(false)
 							}
 						}
 					}
 
-					// Fill int types
-					if f.Kind() == reflect.Slice {
-						f.Set(reflect.ValueOf(v))
+					// Fill slice
+					if field.Kind() == reflect.Slice {
+						field.Set(reflect.ValueOf(v))
+					}
+
+					// Fill date
+					if field.Kind() == reflect.Struct && field.Type().Name() == "Time" {
+						t := time.Now()
+
+						t1, err := time.Parse("2006-01-02 15:04:05", v.(string))
+						if err == nil {
+							t1 = time.Date(t1.Year(), t1.Month(), t1.Day(), t1.Hour(), t1.Minute(), t1.Second(), t.Nanosecond(), t.Location())
+							field.Set(reflect.ValueOf(t1))
+							continue
+						}
+
+						t1, err = time.Parse("2006-01-02", v.(string))
+						if err == nil {
+							t1 = time.Date(t1.Year(), t1.Month(), t1.Day(), 0, 0, 0, 0, t.Location())
+							field.Set(reflect.ValueOf(t1))
+							continue
+						}
 					}
 				}
 			}
 		}
+
 	}
 
 	// Call function
 	in := make([]reflect.Value, 2)
 	in[0] = reflect.ValueOf(controller)
 	in[1] = reflect.ValueOf(s.Interface())
-	result = function.Call(in)[0]
+	r := function.Call(in)
+	if len(r) > 0 {
+		result = function.Call(in)[0]
+	} else {
+		result = reflect.ValueOf("")
+	}
 
 	return
 }
@@ -104,7 +154,7 @@ func CallMethod(controller interface{}, methodName string, params map[string]int
 			return
 		}
 	}
-	Error(500, "Method not found")
+	Error(500, ErrorType.NotFound, "", "Method not found")
 	return
 }
 
@@ -138,13 +188,14 @@ func VirtualFileHandler(rw http.ResponseWriter, r *http.Request, fs VirtualFs) {
 		buffer := make([]byte, 1024*1024*4)
 		totalSize, err := file.Read(buffer)
 		if err != nil {
-			Error(500, "Can't read file")
+			Error(500, ErrorType.Unknown, "", "Can't read file")
 		}
 
 		// Detect content type
 		contentType := http.DetectContentType(buffer)
 		ext := path.Ext(r.URL.Path)
-		if contentType == "application/octet-stream" {
+		fmt.Println(r.URL.Path, ext, contentType)
+		if contentType == "application/octet-stream" || contentType == "text/plain; charset=utf-8" {
 			if ext == ".md" || ext == ".go" || ext == ".txt" {
 				contentType = "text/plain; charset=utf-8"
 			}
@@ -160,6 +211,9 @@ func VirtualFileHandler(rw http.ResponseWriter, r *http.Request, fs VirtualFs) {
 			if ext == ".json" {
 				contentType = "application/json; charset=utf-8"
 			}
+			if ext == ".svg" {
+				contentType = "image/svg+xml"
+			}
 		}
 
 		// Set headers
@@ -171,7 +225,7 @@ func VirtualFileHandler(rw http.ResponseWriter, r *http.Request, fs VirtualFs) {
 		rw.Write(buffer[0:totalSize])
 		return
 	} else {
-		Error(404, "File not found")
+		Error(404, ErrorType.NotFound, "", "File not found")
 	}
 }
 
@@ -200,13 +254,13 @@ func FileHandler(rw http.ResponseWriter, r *http.Request, folderPath string) {
 		buffer := make([]byte, 512)
 		_, err := file.Read(buffer)
 		if err != nil {
-			Error(500, "Can't read file")
+			Error(500, ErrorType.Unknown, "", "Can't read file")
 		}
 
 		// Detect content type
 		contentType := http.DetectContentType(buffer)
 		ext := path.Ext(r.URL.Path)
-		if contentType == "application/octet-stream" {
+		if contentType == "application/octet-stream" || contentType == "text/plain; charset=utf-8" {
 			if ext == ".md" || ext == ".go" || ext == ".txt" {
 				contentType = "text/plain; charset=utf-8"
 			}
@@ -222,6 +276,9 @@ func FileHandler(rw http.ResponseWriter, r *http.Request, folderPath string) {
 			if ext == ".json" {
 				contentType = "application/json; charset=utf-8"
 			}
+			if ext == ".svg" {
+				contentType = "image/svg+xml"
+			}
 		}
 
 		// Set headers
@@ -233,7 +290,7 @@ func FileHandler(rw http.ResponseWriter, r *http.Request, folderPath string) {
 		io.Copy(rw, file)
 		return
 	} else {
-		Error(404, "File not found")
+		Error(404, ErrorType.NotFound, "", "File not found")
 	}
 }
 
@@ -282,12 +339,19 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 	// Get controller
 	path := strings.Split(strings.Replace(r.URL.Path, prefix, "", 1), "/")
 	controllerName := path[1]
-	methodName := path[2]
-	fmt.Println(controllerName, methodName)
+	methodName := ""
+
+	if len(path) > 2 {
+		methodName = path[2]
+	}
+
+	if methodName == "" {
+		methodName = "Index"
+	}
 
 	// Check controller
 	if controller[controllerName] == nil {
-		Error(404, "Controller not found")
+		Error(404, ErrorType.NotFound, "", "Controller not found")
 	}
 
 	// Call method
@@ -297,7 +361,7 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 	response, err := CallMethod(controller[controllerName], strings.Title(strings.ToLower(r.Method))+strings.Title(methodName), args, context)
 
 	if err != nil {
-		Error(500, err.Error())
+		Error(500, ErrorType.Unknown, "", err.Error())
 	}
 
 	// Response
@@ -319,6 +383,12 @@ func Start(addr string, routers map[string]interface{}) {
 	if err != nil {
 		panic("Can't get cwd")
 	}
+
+	routers["/__debug"] = map[string]interface{}{
+		"api": new(DocApi),
+	}
+
+	DocRouter = routers
 
 	http.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
 		var route interface{}

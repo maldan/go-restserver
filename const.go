@@ -7,20 +7,34 @@ import (
 	"strings"
 )
 
+var ErrorType = struct {
+	EmptyField   string
+	AccessDenied string
+	Unknown      string
+	NotFound     string
+}{
+	EmptyField:   "emptyField",
+	AccessDenied: "accessDenied",
+	Unknown:      "unknown",
+	NotFound:     "notFound",
+}
+
 type RestServerContext struct {
 	ContentType string
 	StatusCode  int
 }
 
 type RestResponse struct {
-	Status      bool        `json:"status"`
-	Description interface{} `json:"description"`
-	Response    interface{} `json:"response"`
+	Status   bool            `json:"status"`
+	Error    RestServerError `json:"error"`
+	Response interface{}     `json:"response"`
 }
 
 type RestServerError struct {
-	StatusCode  int
-	Description string
+	StatusCode  int    `json:"code"`
+	Type        string `json:"type"`
+	Field       string `json:"field"`
+	Description string `json:"description"`
 }
 
 type VirtualFs struct {

@@ -18,25 +18,25 @@ func ErrorMessage(rw http.ResponseWriter, r *http.Request) {
 				rw.WriteHeader(e.StatusCode)
 			}
 
-			responseData := RestResponse{Status: false, Description: e.Description}
+			responseData := RestResponse{Status: false, Error: RestServerError{StatusCode: e.StatusCode, Field: e.Field, Type: e.Type, Description: e.Description}}
 			finalData, _ := json.Marshal(responseData)
 			fmt.Fprintf(rw, "%+v", string(finalData))
 		case error:
 			rw.WriteHeader(500)
 
-			responseData := RestResponse{Status: false, Description: e.Error()}
+			responseData := RestResponse{Status: false, Error: RestServerError{StatusCode: 500, Type: ErrorType.Unknown, Description: e.Error()}}
 			finalData, _ := json.Marshal(responseData)
 			fmt.Fprintf(rw, "%+v", string(finalData))
 		default:
 			rw.WriteHeader(500)
 
-			responseData := RestResponse{Status: false, Description: e}
+			responseData := RestResponse{Status: false, Error: RestServerError{StatusCode: 500, Type: ErrorType.Unknown, Description: fmt.Sprintf("%v", e)}}
 			finalData, _ := json.Marshal(responseData)
 			fmt.Fprintf(rw, "%+v", string(finalData))
 		}
 	}
 }
 
-func Error(code int, description string) {
-	panic(&RestServerError{StatusCode: code, Description: description})
+func Error(code int, kind string, field string, description string) {
+	panic(&RestServerError{StatusCode: code, Type: kind, Field: field, Description: description})
 }

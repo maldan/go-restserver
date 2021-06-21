@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Docs</title>
+    <link
+      rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.0.1/styles/default.min.css"
+    />
+    <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.0.1/highlight.min.js"></script>
+    <script src="https://unpkg.com/vue@next"></script>
+    <style>
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+          "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+          "Helvetica Neue", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background: #292929;
+        padding: 10px;
+      }
+
+      .clickable {
+        cursor: pointer;
+      }
+      .clickable:hover {
+        opacity: 0.8;
+      }
+      .clickable:active {
+        position: relative;
+        top: 1px;
+        opacity: 0.6;
+      }
+
+      .method {
+        background: #525252;
+        margin-bottom: 10px;
+        padding: 10px;
+        color: #fefefe;
+      }
+
+      .method .header {
+        display: flex;
+      }
+
+      .method .header .type {
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: bold;
+        margin-right: 10px;
+      }
+
+      .struct {
+        margin-top: 10px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        background: #353535;
+      }
+
+      .struct .field {
+        display: flex;
+      }
+
+      .struct .field .name {
+        margin-right: 10px;
+        color: #dce20d;
+      }
+
+      .struct .field .type {
+        font-weight: bold;
+        color: #fe9c00;
+      }
+
+      .try {
+        padding: 10px;
+        background: #353535;
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 5px;
+      }
+
+      .try input {
+        background: #292929;
+        outline: none;
+        border: 0;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 100%;
+        box-sizing: border-box;
+        color: #909090;
+      }
+
+      .response {
+        padding: 10px;
+        background: #353535;
+        margin-top: 10px;
+      }
+
+      .hljs {
+        background: transparent;
+        color: #fefefe;
+      }
+
+      .hljs-punctuation,
+      .hljs-tag {
+        color: #fefefe;
+      }
+
+      .hljs-attr {
+        color: #ffef00;
+      }
+
+      .hljs-deletion,
+      .hljs-number,
+      .hljs-quote,
+      .hljs-selector-class,
+      .hljs-selector-id,
+      .hljs-string,
+      .hljs-template-tag,
+      .hljs-type {
+        color: #ffc206;
+      }
+
+      .hljs-string {
+        color: #00cc1b;
+      }
+
+      .hljs-keyword {
+        color: #ff6b1f;
+        font-weight: bold;
+      }
+
+      pre code.hljs {
+        padding: 0;
+      }
+
+      pre {
+        padding: 0;
+        margin: 0;
+      }
+
+      button {
+        background: #0b7bd0;
+        border: 0;
+        color: #fefefe;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .GET {
+        background: #61affe;
+      }
+      .POST {
+        background: #49cc90;
+      }
+      .DELETE {
+        background: #f93e3e;
+      }
+      .PUT,
+      .PATCH {
+        background: #fca130;
+      }
+
+      .filter {
+        position: fixed;
+        right: 10px;
+        bottom: 10px;
+      }
+
+      .filter input {
+        background: #212121;
+        padding: 5px 10px;
+        border-radius: 7px;
+        outline: none;
+        border: 2px solid #ec8d00;
+        color: #fefefe;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div
+        class="method"
+        v-for="x in methodList.filter(y => y.fullPath.match(filter))"
+        :style="{ borderTop: `4px solid #${x.color}77` }"
+      >
+        <div class="header">
+          <div class="type" :class="x.type">{{ x.type }}</div>
+          <div class="path">{{ x.path }}/{{ x.name }}</div>
+          <svg
+            @click="x.isShow = !x.isShow"
+            class="clickable"
+            version="1.1"
+            id="Layer_1"
+            xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink"
+            x="0px"
+            y="0px"
+            viewBox="0 0 491.996 491.996"
+            style="
+              enable-background: new 0 0 491.996 491.996;
+              width: 12px;
+              margin-left: auto;
+            "
+            xml:space="preserve"
+          >
+            <path
+              d="M484.132,124.986l-16.116-16.228c-5.072-5.068-11.82-7.86-19.032-7.86c-7.208,0-13.964,2.792-19.036,7.86l-183.84,183.848
+			L62.056,108.554c-5.064-5.068-11.82-7.856-19.028-7.856s-13.968,2.788-19.036,7.856l-16.12,16.128
+			c-10.496,10.488-10.496,27.572,0,38.06l219.136,219.924c5.064,5.064,11.812,8.632,19.084,8.632h0.084
+			c7.212,0,13.96-3.572,19.024-8.632l218.932-219.328c5.072-5.064,7.856-12.016,7.864-19.224
+			C491.996,136.902,489.204,130.046,484.132,124.986z"
+              fill="#fefefe"
+            />
+          </svg>
+        </div>
+        <div v-if="x.isShow" class="struct">
+          <div class="field" v-for="y in x.struct">
+            <div class="name">{{ y.name }}</div>
+            <div class="type">{{ y.type }}</div>
+          </div>
+        </div>
+
+        <div v-if="x.isShow" class="try">
+          <div class="field" v-for="y in x.struct">
+            <!-- String -->
+            <input
+              v-if="y.type === 'string'"
+              type="text"
+              :placeholder="y.name"
+              :value="methodForms[x.type + x.fullPath][y.name]"
+              @change="methodForms[x.type + x.fullPath][y.name] = $event.target.value"
+            />
+
+            <!-- Int -->
+            <input
+              v-if="y.type === 'int'"
+              type="number"
+              :placeholder="y.name"
+              :value="methodForms[x.type + x.fullPath][y.name]"
+              @change="methodForms[x.type + x.fullPath][y.name] = $event.target.value"
+            />
+
+            <!-- Time -->
+            <input
+              v-if="y.type === 'time.Time'"
+              type="date"
+              :placeholder="y.name"
+              :value="methodForms[x.type + x.fullPath][y.name]"
+              @change="methodForms[x.type + x.fullPath][y.name] = $event.target.value"
+            />
+          </div>
+          <button @click="execute(x.type, x.fullPath)">Execute</button>
+        </div>
+
+        <div
+          class="response"
+          v-if="x.isShow && methodResponse[x.type + x.fullPath]"
+        >
+          <pre><code class="language-json">{{ methodResponse[x.type + x.fullPath] }}</code></pre>
+        </div>
+      </div>
+
+      <div class="filter">
+        <input type="text" placeholder="Filter..." v-model="filter" />
+      </div>
+    </div>
+
+    <script>
+      const colors = [
+        "ca3838",
+        "d6951f",
+        "b3b527",
+        "7fb527",
+        "2ecc50",
+        "2ad6ae",
+        "286dd4",
+        "6d59dc",
+        "9c1fc5",
+        "d66a97",
+        "777777",
+      ];
+      String.prototype.hashCode = function () {
+        var hash = 0,
+          i,
+          chr;
+        if (this.length === 0) return hash;
+        for (i = 0; i < this.length; i++) {
+          chr = this.charCodeAt(i);
+          hash = (hash << 5) - hash + chr;
+          hash |= 0;
+        }
+        return hash;
+      };
+
+      // Api
+      async function getMethodList() {
+        const methodList = (
+          await (await fetch(`${window.location.href}/methodList`)).json()
+        ).response;
+
+        methodList.sort((a, b) => {
+          return a.path.localeCompare(b.path) || b.type.localeCompare(a.type);
+        });
+        /*methodList.sort((a, b) => {
+          return a.type.localeCompare(b.type);
+        });
+        console.log(2);*/
+        return methodList
+          .filter((x) => {
+            return !x.path.match("/__debug/");
+          })
+          .map((x) => {
+            x.color = colors[x.path.hashCode() % (colors.length - 1)];
+            return x;
+          });
+      }
+
+      // Init vue
+      Vue.createApp({
+        data() {
+          return {
+            methodList: [],
+            methodForms: {},
+            methodResponse: {},
+            filter: "",
+          };
+        },
+        async mounted() {
+          this.methodList = await getMethodList();
+          this.methodList.forEach((x) => {
+            this.methodForms[x.type + x.fullPath] = {};
+            for (const key in x.struct) {
+              this.methodForms[x.type + x.fullPath][x.struct[key].name] = "";
+            }
+          });
+        },
+        methods: {
+          async execute(method, path) {
+            if (method === "GET" || method === "DELETE") {
+              let query = ``;
+              for (const key in this.methodForms[method + path]) {
+                query += `${key}=${encodeURI(
+                  this.methodForms[method + path][key]
+                )}&`;
+              }
+              const r = await (
+                await fetch(`${window.location.origin}${path}?${query}`, {
+                  method,
+                })
+              ).json();
+              this.methodResponse[method + path] = JSON.stringify(r, null, 4);
+            }
+            if (method === "POST" || method === "PATCH" || method === "PUT") {
+              const r = await (
+                await fetch(`${window.location.origin}${path}`, {
+                  method,
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify(this.methodForms[method + path]),
+                })
+              ).json();
+              this.methodResponse[method + path] = JSON.stringify(r, null, 4);
+            }
+
+            setTimeout(() => {
+              document.querySelectorAll("pre code").forEach((el) => {
+                hljs.highlightElement(el);
+              });
+            }, 10);
+          },
+        },
+      }).mount("#app");
+    </script>
+  </body>
+</html>
