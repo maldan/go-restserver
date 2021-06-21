@@ -1,3 +1,10 @@
+## [1.2.0] - 2021-05-21
+
+### Added
+-    Documentation
+-    Error Type
+-    Time field
+
 ## [1.1.2] - 2021-05-12
 
 ### Fixed
