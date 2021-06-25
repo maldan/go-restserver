@@ -24,7 +24,7 @@ func CallMethod2(controller interface{}, method reflect.Method, params map[strin
 		in[0] = reflect.ValueOf(controller)
 		r := function.Call(in)
 		if len(r) > 0 {
-			result = function.Call(in)[0]
+			result = r[0]
 		} else {
 			result = reflect.ValueOf("")
 		}
@@ -74,15 +74,34 @@ func CallMethod2(controller interface{}, method reflect.Method, params map[strin
 					}
 
 					// Fill int types
-					if field.Kind() == reflect.Int64 {
+					if field.Kind() == reflect.Int64 || field.Kind() == reflect.Int32 || field.Kind() == reflect.Int16 || field.Kind() == reflect.Int8 || field.Kind() == reflect.Int {
 						// From int
-						if reflect.TypeOf(v).Kind() == reflect.Int64 {
+						if reflect.TypeOf(v).Kind() == reflect.Int64 || reflect.TypeOf(v).Kind() == reflect.Int32 || reflect.TypeOf(v).Kind() == reflect.Int16 || reflect.TypeOf(v).Kind() == reflect.Int8 || reflect.TypeOf(v).Kind() == reflect.Int {
 							field.SetInt(v.(int64))
 						}
+
+						// From float
+						if reflect.TypeOf(v).Kind() == reflect.Float32 || reflect.TypeOf(v).Kind() == reflect.Float64 {
+							field.SetInt(int64(v.(float64)))
+						}
+
 						// From string
 						if reflect.TypeOf(v).Kind() == reflect.String {
 							i, _ := strconv.ParseInt(v.(string), 10, 64)
 							field.SetInt(i)
+						}
+					}
+
+					// Fill int float32
+					if field.Kind() == reflect.Float32 || field.Kind() == reflect.Float64 {
+						// From int
+						if reflect.TypeOf(v).Kind() == reflect.Float32 || reflect.TypeOf(v).Kind() == reflect.Float64 {
+							field.SetFloat(v.(float64))
+						}
+						// From string
+						if reflect.TypeOf(v).Kind() == reflect.String {
+							i, _ := strconv.ParseFloat(v.(string), 64)
+							field.SetFloat(i)
 						}
 					}
 
@@ -104,7 +123,22 @@ func CallMethod2(controller interface{}, method reflect.Method, params map[strin
 
 					// Fill slice
 					if field.Kind() == reflect.Slice {
-						field.Set(reflect.ValueOf(v))
+						//slice := reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf(field)), 0, 0)
+						//fmt.Println(.Kind())
+						//fmt.Println((reflect.TypeOf(field).Elem()).Kind())
+						//field.Set(slice)
+						len := reflect.ValueOf(v).Len()
+
+						kind := reflect.ValueOf(field)
+						if fmt.Sprintf("%v", kind) == "<[]string Value>" {
+							slice := make([]string, 0)
+
+							for i := 0; i < len; i++ {
+								slice = append(slice, fmt.Sprintf("%v", reflect.ValueOf(v).Index(i)))
+							}
+
+							field.Set(reflect.ValueOf(slice))
+						}
 					}
 
 					// Fill date
@@ -137,7 +171,7 @@ func CallMethod2(controller interface{}, method reflect.Method, params map[strin
 	in[1] = reflect.ValueOf(s.Interface())
 	r := function.Call(in)
 	if len(r) > 0 {
-		result = function.Call(in)[0]
+		result = r[0]
 	} else {
 		result = reflect.ValueOf("")
 	}
@@ -358,6 +392,7 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 	context := new(RestServerContext)
 	context.ContentType = "application/json"
 	context.StatusCode = 200
+
 	response, err := CallMethod(controller[controllerName], strings.Title(strings.ToLower(r.Method))+strings.Title(methodName), args, context)
 
 	if err != nil {

@@ -241,7 +241,7 @@
 
             <!-- Int -->
             <input
-              v-if="y.type === 'int'"
+              v-if="y.type === 'int' || y.type === 'float32' || y.type === 'float64'"
               type="number"
               :placeholder="y.name"
               :value="methodForms[x.type + x.fullPath][y.name]"

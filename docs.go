@@ -55,6 +55,11 @@ func (d DocApi) GetMethodList(args XArgs) []DocMethod {
 
 					functionType := reflect.TypeOf(method.Func.Interface())
 					for i := 0; i < functionType.NumIn(); i++ {
+						// Skip first argument
+						if i == 0 {
+							continue
+						}
+
 						argument := functionType.In(i)
 						argsx := reflect.New(argument).Interface()
 
