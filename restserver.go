@@ -353,7 +353,7 @@ func VirtualFileHandler(rw http.ResponseWriter, r *http.Request, fs VirtualFs) {
 	}
 }
 
-func FileHandler(rw http.ResponseWriter, r *http.Request, folderPath string) {
+func FileHandler(rw http.ResponseWriter, r *http.Request, folderPath string, url string) {
 	defer ErrorMessage(rw, r)
 
 	// Fuck cors
@@ -369,7 +369,7 @@ func FileHandler(rw http.ResponseWriter, r *http.Request, folderPath string) {
 	}
 
 	// Set path
-	p := r.URL.Path
+	p := url
 	p = strings.ReplaceAll(p, "..", "")
 
 	// Check file and return if found
@@ -548,11 +548,13 @@ func Start(addr string, routers map[string]interface{}) {
 	http.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
 		var route interface{}
 		most := ""
+		prefix := ""
 
 		for k, v := range routers {
 			if strings.HasPrefix(r.URL.Path, k) {
 				// fmt.Println(k, v)
 				if len(most) < len(k) {
+					prefix = k
 					most = k
 					route = v
 				}
@@ -572,8 +574,8 @@ func Start(addr string, routers map[string]interface{}) {
 		// Set file handler
 		if reflect.TypeOf(route).Kind() == reflect.String {
 			folderPath := strings.ReplaceAll(strings.ReplaceAll(dir+"/"+route.(string), "\\", "/"), "//", "/")
-			folderPath = strings.Replace(folderPath, route.(string), "", 1)
-			FileHandler(rw, r, folderPath)
+			url := strings.Replace(r.URL.Path, prefix, "", 1)
+			FileHandler(rw, r, folderPath, url)
 			return
 		}
 
