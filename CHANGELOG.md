@@ -1,3 +1,12 @@
+## [1.2.2] - 2021-06-12
+
+### Fixed
+-    Get mime types
+-    Get multipart files as []byte
+-    Return file
+-    Recursive struct filling
+-    Fix
+
 ## [1.2.1] - 2021-05-25
 
 ### Fixed
