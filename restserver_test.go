@@ -10,3 +10,7 @@ func TestGetFile(t *testing.T) {
 		t.Fatal("Get file error")
 	}
 }
+
+func TestX(t *testing.T) {
+
+}

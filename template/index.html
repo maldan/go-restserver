@@ -256,6 +256,15 @@
               :value="methodForms[x.type + x.fullPath][y.name]"
               @change="methodForms[x.type + x.fullPath][y.name] = $event.target.value"
             />
+
+            <!-- Files -->
+            <input
+              v-if="y.type === '[][]uint8'"
+              type="file"
+              multiple
+              :placeholder="y.name"
+              @change="methodForms[x.type + x.fullPath][y.name] = $event.target.files"
+            />
           </div>
           <button @click="execute(x.type, x.fullPath)">Execute</button>
         </div>
@@ -324,7 +333,7 @@
       }
 
       // Init vue
-      Vue.createApp({
+      const App = Vue.createApp({
         data() {
           return {
             methodList: [],
@@ -354,20 +363,61 @@
               const r = await (
                 await fetch(`${window.location.origin}${path}?${query}`, {
                   method,
+                  headers: {
+                    Authorization: localStorage.getItem("__debugAccessToken"),
+                  },
                 })
               ).json();
               this.methodResponse[method + path] = JSON.stringify(r, null, 4);
             }
             if (method === "POST" || method === "PATCH" || method === "PUT") {
+              let useForm = false;
+              const form = new FormData();
+              for (let key in this.methodForms[method + path]) {
+                if (this.methodForms[method + path][key] instanceof FileList) {
+                  useForm = true;
+                  Array.from(this.methodForms[method + path][key]).forEach(
+                    (x, i) => {
+                      form.append(
+                        "file_" + i,
+                        this.methodForms[method + path][key][i]
+                      );
+                    }
+                  );
+                } else {
+                  form.append(key, this.methodForms[method + path][key]);
+                }
+              }
+
+              const headers = {
+                "Content-Type": "application/json",
+                Authorization: localStorage.getItem("__debugAccessToken"),
+              };
+
+              if (useForm) {
+                delete headers["Content-Type"];
+              }
+
               const r = await (
                 await fetch(`${window.location.origin}${path}`, {
                   method,
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify(this.methodForms[method + path]),
+                  headers,
+                  body: useForm
+                    ? form
+                    : JSON.stringify(this.methodForms[method + path]),
                 })
               ).json();
+
+              if (r.accessToken) {
+                localStorage.setItem("__debugAccessToken", r.accessToken);
+              }
+              if (r.response && r.response.accessToken) {
+                localStorage.setItem(
+                  "__debugAccessToken",
+                  r.response.accessToken
+                );
+              }
+
               this.methodResponse[method + path] = JSON.stringify(r, null, 4);
             }
 

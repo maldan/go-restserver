@@ -9,10 +9,217 @@ import (
 	"os"
 	"path"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 )
+
+func FillFieldList(s *reflect.Value, ss reflect.Type, params map[string]interface{}) {
+	amount := s.NumField()
+
+	for i := 0; i < amount; i++ {
+		field := s.Field(i)
+		fieldName := ss.Field(i).Name
+		fieldTag := ss.Field(i).Tag
+		isRequired := fieldTag.Get("validation") == "required"
+
+		// Can change field
+		if field.IsValid() {
+			if field.CanSet() {
+				// Get value
+				v, ok := params[lowerFirst(fieldName)]
+				if !ok {
+					v = ""
+				}
+
+				// Check
+				if reflect.ValueOf(v).IsZero() && isRequired {
+					Error(500, ErrorType.EmptyField, fieldName, fieldName+" is required")
+				}
+
+				// Get field type
+				switch field.Kind() {
+				case reflect.String:
+					ApplyString(&field, v)
+				case reflect.Int64:
+				case reflect.Int32:
+				case reflect.Int16:
+				case reflect.Int8:
+				case reflect.Int:
+					ApplyInt(&field, v)
+				case reflect.Float32:
+				case reflect.Float64:
+					ApplyFloat(&field, v)
+				case reflect.Bool:
+					ApplyBool(&field, v)
+				case reflect.Slice:
+					ApplySlice(&field, v)
+				case reflect.Struct:
+					if field.Type().Name() == "Time" {
+						ApplyTime(&field, v)
+					} else {
+						// fmt.Println(reflect.TypeOf(field.Interface()))
+						FillFieldList(&field, reflect.TypeOf(field.Interface()), v.(map[string]interface{}))
+					}
+				default:
+					continue
+				}
+
+				// Get filed type
+				/*switch field.Kind() {
+
+				// Field string
+				case reflect.String:
+					switch reflect.TypeOf(v).Kind() {
+					// Param string
+					case reflect.String:
+						field.SetString(v.(string))
+					default:
+						continue
+					}
+
+					// Field int
+				case reflect.Int64:
+				case reflect.Uint64:
+				case reflect.Int32:
+				case reflect.Uint32:
+				case reflect.Int16:
+				case reflect.Uint16:
+				case reflect.Int8:
+				case reflect.Uint8:
+				case reflect.Int:
+				case reflect.Uint:
+					switch reflect.TypeOf(v).Kind() {
+
+					case reflect.Int64:
+					case reflect.Uint64:
+					case reflect.Int32:
+					case reflect.Uint32:
+					case reflect.Int16:
+					case reflect.Uint16:
+					case reflect.Int8:
+					case reflect.Uint8:
+					case reflect.Int:
+					case reflect.Uint:
+						field.SetInt(v.(int64))
+
+					case reflect.Float32:
+					case reflect.Float64:
+						field.SetInt(int64(v.(float64)))
+
+					case reflect.String:
+						i, _ := strconv.ParseInt(v.(string), 10, 64)
+						field.SetInt(i)
+					default:
+						continue
+					}
+
+				default:
+					continue
+				}*/
+
+				// Fill string types
+				/*if field.Kind() == reflect.String && reflect.TypeOf(v).Kind() == reflect.String {
+					field.SetString(v.(string))
+				}
+
+				// Fill int types
+				if field.Kind() == reflect.Int64 || field.Kind() == reflect.Int32 || field.Kind() == reflect.Int16 || field.Kind() == reflect.Int8 || field.Kind() == reflect.Int {
+					// From int
+					if reflect.TypeOf(v).Kind() == reflect.Int64 || reflect.TypeOf(v).Kind() == reflect.Int32 || reflect.TypeOf(v).Kind() == reflect.Int16 || reflect.TypeOf(v).Kind() == reflect.Int8 || reflect.TypeOf(v).Kind() == reflect.Int {
+						field.SetInt(v.(int64))
+					}
+
+					// From float
+					if reflect.TypeOf(v).Kind() == reflect.Float32 || reflect.TypeOf(v).Kind() == reflect.Float64 {
+						field.SetInt(int64(v.(float64)))
+					}
+
+					// From string
+					if reflect.TypeOf(v).Kind() == reflect.String {
+						i, _ := strconv.ParseInt(v.(string), 10, 64)
+						field.SetInt(i)
+					}
+				}
+
+				// Fill int float32
+				if field.Kind() == reflect.Float32 || field.Kind() == reflect.Float64 {
+					// From int
+					if reflect.TypeOf(v).Kind() == reflect.Float32 || reflect.TypeOf(v).Kind() == reflect.Float64 {
+						field.SetFloat(v.(float64))
+					}
+					// From string
+					if reflect.TypeOf(v).Kind() == reflect.String {
+						i, _ := strconv.ParseFloat(v.(string), 64)
+						field.SetFloat(i)
+					}
+				}
+
+				// Fill bool
+				if field.Kind() == reflect.Bool {
+					// From int
+					if reflect.TypeOf(v).Kind() == reflect.Bool {
+						field.SetBool(v.(bool))
+					}
+					// From string
+					if reflect.TypeOf(v).Kind() == reflect.String {
+						if v.(string) == "true" {
+							field.SetBool(true)
+						} else {
+							field.SetBool(false)
+						}
+					}
+				}
+
+				// Fill slice
+				if field.Kind() == reflect.Slice {
+					len := reflect.ValueOf(v).Len()
+					kind := reflect.ValueOf(field)
+
+					if fmt.Sprintf("%v", kind) == "<[][]uint8 Value>" {
+						slice := make([][]byte, 0)
+
+						for i := 0; i < len; i++ {
+							slice = append(slice, reflect.ValueOf(v).Index(i).Interface().([]byte))
+						}
+
+						field.Set(reflect.ValueOf(slice))
+					}
+
+					if fmt.Sprintf("%v", kind) == "<[]string Value>" {
+						slice := make([]string, 0)
+
+						for i := 0; i < len; i++ {
+							slice = append(slice, fmt.Sprintf("%v", reflect.ValueOf(v).Index(i)))
+						}
+
+						field.Set(reflect.ValueOf(slice))
+					}
+				}
+
+				// Fill date
+				if field.Kind() == reflect.Struct && field.Type().Name() == "Time" {
+					t := time.Now()
+
+					t1, err := time.Parse("2006-01-02 15:04:05", v.(string))
+					if err == nil {
+						t1 = time.Date(t1.Year(), t1.Month(), t1.Day(), t1.Hour(), t1.Minute(), t1.Second(), t.Nanosecond(), t.Location())
+						field.Set(reflect.ValueOf(t1))
+						continue
+					}
+
+					t1, err = time.Parse("2006-01-02", v.(string))
+					if err == nil {
+						t1 = time.Date(t1.Year(), t1.Month(), t1.Day(), 0, 0, 0, 0, t.Location())
+						field.Set(reflect.ValueOf(t1))
+						continue
+					}
+				}
+
+				*/
+			}
+		}
+	}
+}
 
 func CallMethod2(controller interface{}, method reflect.Method, params map[string]interface{}, context *RestServerContext) (result reflect.Value, err error) {
 	function := reflect.ValueOf(method.Func.Interface())
@@ -34,12 +241,12 @@ func CallMethod2(controller interface{}, method reflect.Method, params map[strin
 
 	firstArgument := functionType.In(1)
 	args := reflect.New(firstArgument).Interface()
-	s := reflect.ValueOf(args).Elem()
-	ss := reflect.TypeOf(args).Elem()
+	argsValue := reflect.ValueOf(args).Elem()
+	argsType := reflect.TypeOf(args).Elem()
 
-	if s.Kind() == reflect.Struct {
+	if argsValue.Kind() == reflect.Struct {
 		// Fill context
-		contextField := s.FieldByName("Context")
+		contextField := argsValue.FieldByName("Context")
 		if contextField.IsValid() {
 			if contextField.CanSet() {
 				contextField.Set(reflect.ValueOf(context))
@@ -47,128 +254,13 @@ func CallMethod2(controller interface{}, method reflect.Method, params map[strin
 		}
 
 		// Go over fields
-		amount := s.NumField()
-		for i := 0; i < amount; i++ {
-			field := s.Field(i)
-			fieldName := ss.Field(i).Name
-			fieldTag := ss.Field(i).Tag
-			isRequired := fieldTag.Get("validation") == "required"
-
-			// Can change field
-			if field.IsValid() {
-				if field.CanSet() {
-					// Get value
-					v, ok := params[lowerFirst(fieldName)]
-					if !ok {
-						v = ""
-					}
-
-					// Check
-					if reflect.ValueOf(v).IsZero() && isRequired {
-						Error(500, ErrorType.EmptyField, fieldName, fieldName+" is required")
-					}
-
-					// Fill string types
-					if field.Kind() == reflect.String && reflect.TypeOf(v).Kind() == reflect.String {
-						field.SetString(v.(string))
-					}
-
-					// Fill int types
-					if field.Kind() == reflect.Int64 || field.Kind() == reflect.Int32 || field.Kind() == reflect.Int16 || field.Kind() == reflect.Int8 || field.Kind() == reflect.Int {
-						// From int
-						if reflect.TypeOf(v).Kind() == reflect.Int64 || reflect.TypeOf(v).Kind() == reflect.Int32 || reflect.TypeOf(v).Kind() == reflect.Int16 || reflect.TypeOf(v).Kind() == reflect.Int8 || reflect.TypeOf(v).Kind() == reflect.Int {
-							field.SetInt(v.(int64))
-						}
-
-						// From float
-						if reflect.TypeOf(v).Kind() == reflect.Float32 || reflect.TypeOf(v).Kind() == reflect.Float64 {
-							field.SetInt(int64(v.(float64)))
-						}
-
-						// From string
-						if reflect.TypeOf(v).Kind() == reflect.String {
-							i, _ := strconv.ParseInt(v.(string), 10, 64)
-							field.SetInt(i)
-						}
-					}
-
-					// Fill int float32
-					if field.Kind() == reflect.Float32 || field.Kind() == reflect.Float64 {
-						// From int
-						if reflect.TypeOf(v).Kind() == reflect.Float32 || reflect.TypeOf(v).Kind() == reflect.Float64 {
-							field.SetFloat(v.(float64))
-						}
-						// From string
-						if reflect.TypeOf(v).Kind() == reflect.String {
-							i, _ := strconv.ParseFloat(v.(string), 64)
-							field.SetFloat(i)
-						}
-					}
-
-					// Fill bool
-					if field.Kind() == reflect.Bool {
-						// From int
-						if reflect.TypeOf(v).Kind() == reflect.Bool {
-							field.SetBool(v.(bool))
-						}
-						// From string
-						if reflect.TypeOf(v).Kind() == reflect.String {
-							if v.(string) == "true" {
-								field.SetBool(true)
-							} else {
-								field.SetBool(false)
-							}
-						}
-					}
-
-					// Fill slice
-					if field.Kind() == reflect.Slice {
-						//slice := reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf(field)), 0, 0)
-						//fmt.Println(.Kind())
-						//fmt.Println((reflect.TypeOf(field).Elem()).Kind())
-						//field.Set(slice)
-						len := reflect.ValueOf(v).Len()
-
-						kind := reflect.ValueOf(field)
-						if fmt.Sprintf("%v", kind) == "<[]string Value>" {
-							slice := make([]string, 0)
-
-							for i := 0; i < len; i++ {
-								slice = append(slice, fmt.Sprintf("%v", reflect.ValueOf(v).Index(i)))
-							}
-
-							field.Set(reflect.ValueOf(slice))
-						}
-					}
-
-					// Fill date
-					if field.Kind() == reflect.Struct && field.Type().Name() == "Time" {
-						t := time.Now()
-
-						t1, err := time.Parse("2006-01-02 15:04:05", v.(string))
-						if err == nil {
-							t1 = time.Date(t1.Year(), t1.Month(), t1.Day(), t1.Hour(), t1.Minute(), t1.Second(), t.Nanosecond(), t.Location())
-							field.Set(reflect.ValueOf(t1))
-							continue
-						}
-
-						t1, err = time.Parse("2006-01-02", v.(string))
-						if err == nil {
-							t1 = time.Date(t1.Year(), t1.Month(), t1.Day(), 0, 0, 0, 0, t.Location())
-							field.Set(reflect.ValueOf(t1))
-							continue
-						}
-					}
-				}
-			}
-		}
-
+		FillFieldList(&argsValue, argsType, params)
 	}
 
 	// Call function
 	in := make([]reflect.Value, 2)
 	in[0] = reflect.ValueOf(controller)
-	in[1] = reflect.ValueOf(s.Interface())
+	in[1] = reflect.ValueOf(argsValue.Interface())
 	r := function.Call(in)
 	if len(r) > 0 {
 		result = r[0]
@@ -228,7 +320,6 @@ func VirtualFileHandler(rw http.ResponseWriter, r *http.Request, fs VirtualFs) {
 		// Detect content type
 		contentType := http.DetectContentType(buffer)
 		ext := path.Ext(r.URL.Path)
-		fmt.Println(r.URL.Path, ext, contentType)
 		if contentType == "application/octet-stream" || contentType == "text/plain; charset=utf-8" {
 			if ext == ".md" || ext == ".go" || ext == ".txt" {
 				contentType = "text/plain; charset=utf-8"
@@ -255,7 +346,6 @@ func VirtualFileHandler(rw http.ResponseWriter, r *http.Request, fs VirtualFs) {
 		rw.Header().Add("Content-Length", fmt.Sprintf("%d", totalSize))
 
 		// Stream file
-		// io.Copy(rw, file)
 		rw.Write(buffer[0:totalSize])
 		return
 	} else {
@@ -278,41 +368,20 @@ func FileHandler(rw http.ResponseWriter, r *http.Request, folderPath string) {
 		return
 	}
 
+	// Set path
+	p := r.URL.Path
+	p = strings.ReplaceAll(p, "..", "")
+
 	// Check file and return if found
-	file := getFile(strings.ReplaceAll(folderPath+r.URL.Path, "//", "/"))
+	file := getFile(strings.ReplaceAll(folderPath+p, "//", "/"))
+
 	if file != nil {
 		stat, _ := file.Stat()
 
-		// Get file header
-		file.Seek(0, 0)
-		buffer := make([]byte, 512)
-		_, err := file.Read(buffer)
+		// Check content type
+		contentType, err := GetMime(folderPath + p)
 		if err != nil {
-			Error(500, ErrorType.Unknown, "", "Can't read file")
-		}
-
-		// Detect content type
-		contentType := http.DetectContentType(buffer)
-		ext := path.Ext(r.URL.Path)
-		if contentType == "application/octet-stream" || contentType == "text/plain; charset=utf-8" {
-			if ext == ".md" || ext == ".go" || ext == ".txt" {
-				contentType = "text/plain; charset=utf-8"
-			}
-			if ext == ".html" {
-				contentType = "text/html; charset=utf-8"
-			}
-			if ext == ".css" {
-				contentType = "text/css; charset=utf-8"
-			}
-			if ext == ".js" {
-				contentType = "text/javascript; charset=utf-8"
-			}
-			if ext == ".json" {
-				contentType = "application/json; charset=utf-8"
-			}
-			if ext == ".svg" {
-				contentType = "image/svg+xml"
-			}
+			Error(500, ErrorType.Unknown, "", "Error while get content type")
 		}
 
 		// Set headers
@@ -359,7 +428,17 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 			args[key] = element[0]
 		}
 		if len(r.MultipartForm.File) > 0 {
-			args["files"] = r.MultipartForm.File
+			files := make([][]byte, 0)
+			for _, fileHeaders := range r.MultipartForm.File {
+				for _, fileHeader := range fileHeaders {
+					f, _ := fileHeader.Open()
+					defer f.Close()
+					buffer := make([]byte, fileHeader.Size)
+					f.Read(buffer)
+					files = append(files, buffer)
+				}
+			}
+			args["files"] = files
 		}
 	} else {
 		// Parse json body and collect args
@@ -395,6 +474,19 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 
 	response, err := CallMethod(controller[controllerName], strings.Title(strings.ToLower(r.Method))+strings.Title(methodName), args, context)
 
+	// Response is file
+	if fmt.Sprintf("%v", response.Type()) == "*os.File" {
+		file := response.Interface().(*os.File)
+		contentType, _ := GetMimeByFile(file)
+		rw.Header().Add("Content-Type", contentType)
+
+		// Stream file
+		file.Seek(0, 0)
+		// io.Copy(rw, file)
+		http.ServeContent(rw, r, "", time.Now(), file)
+		return
+	}
+
 	if err != nil {
 		Error(500, ErrorType.Unknown, "", err.Error())
 	}
@@ -410,6 +502,34 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 		fmt.Fprintf(rw, "%+v", response)
 	}
 }
+
+/*func ReturnFile(path string) {
+	file := getFile(path)
+	if file == nil {
+		Error(404, ErrorType.NotFound, "", "File not found")
+	} else {
+		stat, _ := file.Stat()
+
+		// Get file header
+		file.Seek(0, 0)
+		buffer := make([]byte, 512)
+		_, err := file.Read(buffer)
+		if err != nil {
+			Error(500, ErrorType.Unknown, "", "Can't read file")
+		}
+
+		// Detect content type
+		contentType := http.DetectContentType(buffer)
+
+		// Set headers
+		rw.Header().Add("Content-Type", contentType)
+		rw.Header().Add("Content-Length", fmt.Sprintf("%d", stat.Size()))
+
+		// Stream file
+		file.Seek(0, 0)
+		io.Copy(rw, file)
+	}
+}*/
 
 func Start(addr string, routers map[string]interface{}) {
 	fmt.Printf("Starting server at " + addr + "\n")
@@ -439,7 +559,11 @@ func Start(addr string, routers map[string]interface{}) {
 			}
 		}
 
-		// Set veritual fs
+		if route == nil {
+			Error(404, ErrorType.NotFound, "", "Route not found")
+		}
+
+		// Set virtual fs
 		if reflect.TypeOf(route).Kind() == reflect.Struct {
 			VirtualFileHandler(rw, r, route.(VirtualFs))
 			return
@@ -448,6 +572,7 @@ func Start(addr string, routers map[string]interface{}) {
 		// Set file handler
 		if reflect.TypeOf(route).Kind() == reflect.String {
 			folderPath := strings.ReplaceAll(strings.ReplaceAll(dir+"/"+route.(string), "\\", "/"), "//", "/")
+			folderPath = strings.Replace(folderPath, route.(string), "", 1)
 			FileHandler(rw, r, folderPath)
 			return
 		}
