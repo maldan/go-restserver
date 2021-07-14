@@ -308,7 +308,7 @@ func VirtualFileHandler(rw http.ResponseWriter, r *http.Request, fs VirtualFs) {
 	file, err := fs.Open(finalPath)
 
 	if err == nil {
-		// stat, _ := file.Stat()
+		// stat, _ := file.Stat() //
 
 		// Get file header
 		buffer := make([]byte, 1024*1024*4)
