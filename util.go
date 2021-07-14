@@ -1,6 +1,7 @@
 package restserver
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -92,6 +93,27 @@ func ApplySlice(field *reflect.Value, v interface{}) {
 	len := reflect.ValueOf(v).Len()
 	kind := reflect.ValueOf(field)
 
+	if fmt.Sprintf("%v", kind) == "<json.RawMessage Value>" {
+		stringJson, err := json.Marshal(v.(map[string]interface{}))
+		if err == nil {
+			field.Set(reflect.ValueOf(json.RawMessage(stringJson)))
+		}
+	}
+
+	/*
+		itemslice := reflect.SliceOf(field.Type())
+		rv := reflect.New(itemslice)
+		field.Set(rv.Elem())
+	*/
+
+	if fmt.Sprintf("%v", kind) == "<[]uint8 Value>" {
+		slice := make([]byte, 0)
+		for i := 0; i < len; i++ {
+			slice = append(slice, reflect.ValueOf(v).Index(i).Interface().(byte))
+		}
+		field.Set(reflect.ValueOf(slice))
+	}
+
 	if fmt.Sprintf("%v", kind) == "<[][]uint8 Value>" {
 		slice := make([][]byte, 0)
 		for i := 0; i < len; i++ {
@@ -124,6 +146,17 @@ func ApplyTime(field *reflect.Value, v interface{}) {
 		t1 = time.Date(t1.Year(), t1.Month(), t1.Day(), 0, 0, 0, 0, t.Location())
 		field.Set(reflect.ValueOf(t1))
 		return
+	}
+}
+
+func ApplyPtr(field *reflect.Value, v interface{}) {
+	field.Set(reflect.New(field.Type().Elem()))
+	x := field.Elem()
+
+	if v == nil {
+		FillFieldList(&x, field.Elem().Type(), nil)
+	} else {
+		FillFieldList(&x, field.Elem().Type(), v.(map[string]interface{}))
 	}
 }
 

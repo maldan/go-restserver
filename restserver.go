@@ -16,25 +16,48 @@ import (
 func FillFieldList(s *reflect.Value, ss reflect.Type, params map[string]interface{}) {
 	amount := s.NumField()
 
+	if params == nil {
+		params = make(map[string]interface{})
+	}
+
 	for i := 0; i < amount; i++ {
 		field := s.Field(i)
 		fieldName := ss.Field(i).Name
 		fieldTag := ss.Field(i).Tag
-		isRequired := fieldTag.Get("validation") == "required"
+		jsonName := fieldTag.Get("json")
+
+		// isRequired := fieldTag.Get("validation") == "required"
 
 		// Can change field
 		if field.IsValid() {
 			if field.CanSet() {
+				// Skip
+				if jsonName == "-" {
+					continue
+				}
+
 				// Get value
-				v, ok := params[lowerFirst(fieldName)]
-				if !ok {
-					v = ""
+				var v interface{}
+				if jsonName != "" {
+					x, ok := params[jsonName]
+					if ok {
+						v = x
+					} else {
+						v = ""
+					}
+				} else {
+					x, ok := params[lowerFirst(fieldName)]
+					if ok {
+						v = x
+					} else {
+						v = ""
+					}
 				}
 
 				// Check
-				if reflect.ValueOf(v).IsZero() && isRequired {
+				/*if reflect.ValueOf(v).IsZero() && isRequired {
 					Fatal(500, ErrorType.EmptyField, fieldName, fieldName+" is required")
-				}
+				}*/
 
 				// Get field type
 				switch field.Kind() {
@@ -57,165 +80,18 @@ func FillFieldList(s *reflect.Value, ss reflect.Type, params map[string]interfac
 					if field.Type().Name() == "Time" {
 						ApplyTime(&field, v)
 					} else {
-						// fmt.Println(reflect.TypeOf(field.Interface()))
-						FillFieldList(&field, reflect.TypeOf(field.Interface()), v.(map[string]interface{}))
-					}
-				default:
-					continue
-				}
-
-				// Get filed type
-				/*switch field.Kind() {
-
-				// Field string
-				case reflect.String:
-					switch reflect.TypeOf(v).Kind() {
-					// Param string
-					case reflect.String:
-						field.SetString(v.(string))
-					default:
-						continue
-					}
-
-					// Field int
-				case reflect.Int64:
-				case reflect.Uint64:
-				case reflect.Int32:
-				case reflect.Uint32:
-				case reflect.Int16:
-				case reflect.Uint16:
-				case reflect.Int8:
-				case reflect.Uint8:
-				case reflect.Int:
-				case reflect.Uint:
-					switch reflect.TypeOf(v).Kind() {
-
-					case reflect.Int64:
-					case reflect.Uint64:
-					case reflect.Int32:
-					case reflect.Uint32:
-					case reflect.Int16:
-					case reflect.Uint16:
-					case reflect.Int8:
-					case reflect.Uint8:
-					case reflect.Int:
-					case reflect.Uint:
-						field.SetInt(v.(int64))
-
-					case reflect.Float32:
-					case reflect.Float64:
-						field.SetInt(int64(v.(float64)))
-
-					case reflect.String:
-						i, _ := strconv.ParseInt(v.(string), 10, 64)
-						field.SetInt(i)
-					default:
-						continue
-					}
-
-				default:
-					continue
-				}*/
-
-				// Fill string types
-				/*if field.Kind() == reflect.String && reflect.TypeOf(v).Kind() == reflect.String {
-					field.SetString(v.(string))
-				}
-
-				// Fill int types
-				if field.Kind() == reflect.Int64 || field.Kind() == reflect.Int32 || field.Kind() == reflect.Int16 || field.Kind() == reflect.Int8 || field.Kind() == reflect.Int {
-					// From int
-					if reflect.TypeOf(v).Kind() == reflect.Int64 || reflect.TypeOf(v).Kind() == reflect.Int32 || reflect.TypeOf(v).Kind() == reflect.Int16 || reflect.TypeOf(v).Kind() == reflect.Int8 || reflect.TypeOf(v).Kind() == reflect.Int {
-						field.SetInt(v.(int64))
-					}
-
-					// From float
-					if reflect.TypeOf(v).Kind() == reflect.Float32 || reflect.TypeOf(v).Kind() == reflect.Float64 {
-						field.SetInt(int64(v.(float64)))
-					}
-
-					// From string
-					if reflect.TypeOf(v).Kind() == reflect.String {
-						i, _ := strconv.ParseInt(v.(string), 10, 64)
-						field.SetInt(i)
-					}
-				}
-
-				// Fill int float32
-				if field.Kind() == reflect.Float32 || field.Kind() == reflect.Float64 {
-					// From int
-					if reflect.TypeOf(v).Kind() == reflect.Float32 || reflect.TypeOf(v).Kind() == reflect.Float64 {
-						field.SetFloat(v.(float64))
-					}
-					// From string
-					if reflect.TypeOf(v).Kind() == reflect.String {
-						i, _ := strconv.ParseFloat(v.(string), 64)
-						field.SetFloat(i)
-					}
-				}
-
-				// Fill bool
-				if field.Kind() == reflect.Bool {
-					// From int
-					if reflect.TypeOf(v).Kind() == reflect.Bool {
-						field.SetBool(v.(bool))
-					}
-					// From string
-					if reflect.TypeOf(v).Kind() == reflect.String {
-						if v.(string) == "true" {
-							field.SetBool(true)
+						if v == nil {
+							FillFieldList(&field, reflect.TypeOf(field.Interface()), nil)
 						} else {
-							field.SetBool(false)
+							FillFieldList(&field, reflect.TypeOf(field.Interface()), v.(map[string]interface{}))
 						}
 					}
+				case reflect.Ptr:
+					ApplyPtr(&field, v)
+					continue
+				default:
+					continue
 				}
-
-				// Fill slice
-				if field.Kind() == reflect.Slice {
-					len := reflect.ValueOf(v).Len()
-					kind := reflect.ValueOf(field)
-
-					if fmt.Sprintf("%v", kind) == "<[][]uint8 Value>" {
-						slice := make([][]byte, 0)
-
-						for i := 0; i < len; i++ {
-							slice = append(slice, reflect.ValueOf(v).Index(i).Interface().([]byte))
-						}
-
-						field.Set(reflect.ValueOf(slice))
-					}
-
-					if fmt.Sprintf("%v", kind) == "<[]string Value>" {
-						slice := make([]string, 0)
-
-						for i := 0; i < len; i++ {
-							slice = append(slice, fmt.Sprintf("%v", reflect.ValueOf(v).Index(i)))
-						}
-
-						field.Set(reflect.ValueOf(slice))
-					}
-				}
-
-				// Fill date
-				if field.Kind() == reflect.Struct && field.Type().Name() == "Time" {
-					t := time.Now()
-
-					t1, err := time.Parse("2006-01-02 15:04:05", v.(string))
-					if err == nil {
-						t1 = time.Date(t1.Year(), t1.Month(), t1.Day(), t1.Hour(), t1.Minute(), t1.Second(), t.Nanosecond(), t.Location())
-						field.Set(reflect.ValueOf(t1))
-						continue
-					}
-
-					t1, err = time.Parse("2006-01-02", v.(string))
-					if err == nil {
-						t1 = time.Date(t1.Year(), t1.Month(), t1.Day(), 0, 0, 0, 0, t.Location())
-						field.Set(reflect.ValueOf(t1))
-						continue
-					}
-				}
-
-				*/
 			}
 		}
 	}
@@ -244,6 +120,7 @@ func CallMethod2(controller interface{}, method reflect.Method, params map[strin
 	argsValue := reflect.ValueOf(args).Elem()
 	argsType := reflect.TypeOf(args).Elem()
 
+	// If first args is string
 	if argsValue.Kind() == reflect.Struct {
 		// Fill context
 		contextField := argsValue.FieldByName("Context")
