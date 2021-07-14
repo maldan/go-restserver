@@ -1,3 +1,10 @@
+## [1.2.5] - 2021-06-14
+
+### Fixed
+-    Apply ptr
+-    json.RawMessage
+-    Get field name from json or by default
+
 ## [1.2.4] - 2021-06-14
 
 ### Fixed
