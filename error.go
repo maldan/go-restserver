@@ -37,6 +37,6 @@ func ErrorMessage(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func Error(code int, kind string, field string, description string) {
+func Fatal(code int, kind string, field string, description string) {
 	panic(&RestServerError{StatusCode: code, Type: kind, Field: field, Description: description})
 }

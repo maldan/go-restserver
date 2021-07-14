@@ -33,7 +33,7 @@ func FillFieldList(s *reflect.Value, ss reflect.Type, params map[string]interfac
 
 				// Check
 				if reflect.ValueOf(v).IsZero() && isRequired {
-					Error(500, ErrorType.EmptyField, fieldName, fieldName+" is required")
+					Fatal(500, ErrorType.EmptyField, fieldName, fieldName+" is required")
 				}
 
 				// Get field type
@@ -280,7 +280,7 @@ func CallMethod(controller interface{}, methodName string, params map[string]int
 			return
 		}
 	}
-	Error(500, ErrorType.NotFound, "", "Method not found")
+	Fatal(500, ErrorType.NotFound, "", "Method not found")
 	return
 }
 
@@ -314,7 +314,7 @@ func VirtualFileHandler(rw http.ResponseWriter, r *http.Request, fs VirtualFs) {
 		buffer := make([]byte, 1024*1024*4)
 		totalSize, err := file.Read(buffer)
 		if err != nil {
-			Error(500, ErrorType.Unknown, "", "Can't read file")
+			Fatal(500, ErrorType.Unknown, "", "Can't read file")
 		}
 
 		// Detect content type
@@ -349,7 +349,7 @@ func VirtualFileHandler(rw http.ResponseWriter, r *http.Request, fs VirtualFs) {
 		rw.Write(buffer[0:totalSize])
 		return
 	} else {
-		Error(404, ErrorType.NotFound, "", "File not found")
+		Fatal(404, ErrorType.NotFound, "", "File not found")
 	}
 }
 
@@ -381,7 +381,7 @@ func FileHandler(rw http.ResponseWriter, r *http.Request, folderPath string, url
 		// Check content type
 		contentType, err := GetMime(folderPath + p)
 		if err != nil {
-			Error(500, ErrorType.Unknown, "", "Error while get content type")
+			Fatal(500, ErrorType.Unknown, "", "Error while get content type")
 		}
 
 		// Set headers
@@ -393,7 +393,7 @@ func FileHandler(rw http.ResponseWriter, r *http.Request, folderPath string, url
 		io.Copy(rw, file)
 		return
 	} else {
-		Error(404, ErrorType.NotFound, "", "File not found")
+		Fatal(404, ErrorType.NotFound, "", "File not found")
 	}
 }
 
@@ -464,7 +464,7 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 
 	// Check controller
 	if controller[controllerName] == nil {
-		Error(404, ErrorType.NotFound, "", "Controller not found")
+		Fatal(404, ErrorType.NotFound, "", "Controller not found")
 	}
 
 	// Call method
@@ -488,7 +488,7 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 	}
 
 	if err != nil {
-		Error(500, ErrorType.Unknown, "", err.Error())
+		Fatal(500, ErrorType.Unknown, "", err.Error())
 	}
 
 	// Response
@@ -562,7 +562,7 @@ func Start(addr string, routers map[string]interface{}) {
 		}
 
 		if route == nil {
-			Error(404, ErrorType.NotFound, "", "Route not found")
+			Fatal(404, ErrorType.NotFound, "", "Route not found")
 		}
 
 		// Set virtual fs
