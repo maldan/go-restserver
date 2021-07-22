@@ -50,6 +50,11 @@ func ApplyString(field *reflect.Value, v interface{}) {
 
 func ApplyInt(field *reflect.Value, v interface{}) {
 	switch reflect.TypeOf(v).Kind() {
+	case reflect.Uint64:
+	case reflect.Uint32:
+	case reflect.Uint16:
+	case reflect.Uint8:
+	case reflect.Uint:
 	case reflect.Int64:
 	case reflect.Int32:
 	case reflect.Int16:
@@ -67,6 +72,17 @@ func ApplyInt(field *reflect.Value, v interface{}) {
 
 func ApplyFloat(field *reflect.Value, v interface{}) {
 	switch reflect.TypeOf(v).Kind() {
+	case reflect.Uint64:
+	case reflect.Uint32:
+	case reflect.Uint16:
+	case reflect.Uint8:
+	case reflect.Uint:
+	case reflect.Int64:
+	case reflect.Int32:
+	case reflect.Int16:
+	case reflect.Int8:
+	case reflect.Int:
+		field.SetFloat(float64(v.(int64)))
 	case reflect.Float32:
 	case reflect.Float64:
 		field.SetFloat(v.(float64))
@@ -153,16 +169,7 @@ func ApplyPtr(field *reflect.Value, v interface{}) {
 	field.Set(reflect.New(field.Type().Elem()))
 	x := field.Elem()
 
-	if v == nil {
-		FillFieldList(&x, field.Elem().Type(), nil)
-	} else {
+	if reflect.TypeOf(v).Kind() == reflect.Map {
 		FillFieldList(&x, field.Elem().Type(), v.(map[string]interface{}))
 	}
 }
-
-/*func ApplyStruct(field *reflect.Value, v interface{}) {
-	// If value is struct
-	if reflect.TypeOf(v).Kind() == reflect.Map {
-		FillFieldList(field, reflect.TypeOf(v), v.(map[string]interface{}))
-	}
-}*/

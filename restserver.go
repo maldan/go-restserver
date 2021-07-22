@@ -40,17 +40,23 @@ func FillFieldList(s *reflect.Value, ss reflect.Type, params map[string]interfac
 				var v interface{}
 				if jsonName != "" {
 					x, ok := params[jsonName]
+					if x == nil {
+						continue
+					}
 					if ok {
 						v = x
 					} else {
-						v = ""
+						continue
 					}
 				} else {
 					x, ok := params[lowerFirst(fieldName)]
+					if x == nil {
+						continue
+					}
 					if ok {
 						v = x
 					} else {
-						v = ""
+						continue
 					}
 				}
 
@@ -63,6 +69,11 @@ func FillFieldList(s *reflect.Value, ss reflect.Type, params map[string]interfac
 				switch field.Kind() {
 				case reflect.String:
 					ApplyString(&field, v)
+				case reflect.Uint64:
+				case reflect.Uint32:
+				case reflect.Uint16:
+				case reflect.Uint8:
+				case reflect.Uint:
 				case reflect.Int64:
 				case reflect.Int32:
 				case reflect.Int16:
@@ -80,9 +91,7 @@ func FillFieldList(s *reflect.Value, ss reflect.Type, params map[string]interfac
 					if field.Type().Name() == "Time" {
 						ApplyTime(&field, v)
 					} else {
-						if v == nil {
-							FillFieldList(&field, reflect.TypeOf(field.Interface()), nil)
-						} else {
+						if reflect.TypeOf(v).Kind() == reflect.Map {
 							FillFieldList(&field, reflect.TypeOf(field.Interface()), v.(map[string]interface{}))
 						}
 					}
