@@ -363,6 +363,7 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 	// Response is file
 	if fmt.Sprintf("%v", response.Type()) == "*os.File" {
 		file := response.Interface().(*os.File)
+		defer file.Close()
 		contentType, _ := GetMimeByFile(file)
 		rw.Header().Add("Content-Type", contentType)
 
