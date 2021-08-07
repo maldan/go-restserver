@@ -1,6 +1,7 @@
 package restserver
 
 import (
+	"errors"
 	"net/http"
 	"os"
 	"path"
@@ -62,15 +63,15 @@ func GetMimeByFile(file *os.File) (string, error) {
 // Get mime type
 func GetMime(p string) (string, error) {
 	// Open file
-	file, err := os.Open(p)
-	if err != nil {
-		return "", err
+	file := getFile(p)
+	if file == nil {
+		return "", errors.New("file not found")
 	}
 
 	// Get file header
 	file.Seek(0, 0)
 	buffer := make([]byte, 1024)
-	_, err = file.Read(buffer)
+	_, err := file.Read(buffer)
 	if err != nil {
 		return "", err
 	}

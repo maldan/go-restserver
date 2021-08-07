@@ -2,6 +2,7 @@ package restserver
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"strings"
@@ -24,7 +25,7 @@ type RestServerContext struct {
 	StatusCode  int
 }
 
-type RestResponse struct {
+type RestServerResponse struct {
 	Status   bool            `json:"status"`
 	Error    RestServerError `json:"error"`
 	Response interface{}     `json:"response"`
@@ -35,6 +36,18 @@ type RestServerError struct {
 	Type        string `json:"type"`
 	Field       string `json:"field"`
 	Description string `json:"description"`
+}
+
+type WsMessage struct {
+	Id     string          `json:"id"`
+	Method string          `json:"method"`
+	Args   json.RawMessage `json:"args"`
+}
+
+type WsResponse struct {
+	Id       string      `json:"id"`
+	Status   bool        `json:"status"`
+	Response interface{} `json:"response"`
 }
 
 type VirtualFs struct {

@@ -1,6 +1,7 @@
 package restserver
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,164 +12,12 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
-func FillFieldList(s *reflect.Value, ss reflect.Type, params map[string]interface{}) {
-	amount := s.NumField()
-
-	if params == nil {
-		params = make(map[string]interface{})
-	}
-
-	for i := 0; i < amount; i++ {
-		field := s.Field(i)
-		fieldName := ss.Field(i).Name
-		fieldTag := ss.Field(i).Tag
-		jsonName := fieldTag.Get("json")
-
-		// isRequired := fieldTag.Get("validation") == "required"
-
-		// Can change field
-		if field.IsValid() {
-			if field.CanSet() {
-				// Skip
-				if jsonName == "-" {
-					continue
-				}
-
-				// Get value
-				var v interface{}
-				if jsonName != "" {
-					x, ok := params[jsonName]
-					if x == nil {
-						continue
-					}
-					if ok {
-						v = x
-					} else {
-						continue
-					}
-				} else {
-					x, ok := params[lowerFirst(fieldName)]
-					if x == nil {
-						continue
-					}
-					if ok {
-						v = x
-					} else {
-						continue
-					}
-				}
-
-				// Check
-				/*if reflect.ValueOf(v).IsZero() && isRequired {
-					Fatal(500, ErrorType.EmptyField, fieldName, fieldName+" is required")
-				}*/
-
-				// Get field type
-				switch field.Kind() {
-				case reflect.String:
-					ApplyString(&field, v)
-				case reflect.Uint64:
-				case reflect.Uint32:
-				case reflect.Uint16:
-				case reflect.Uint8:
-				case reflect.Uint:
-				case reflect.Int64:
-				case reflect.Int32:
-				case reflect.Int16:
-				case reflect.Int8:
-				case reflect.Int:
-					ApplyInt(&field, v)
-				case reflect.Float32:
-				case reflect.Float64:
-					ApplyFloat(&field, v)
-				case reflect.Bool:
-					ApplyBool(&field, v)
-				case reflect.Slice:
-					ApplySlice(&field, v)
-				case reflect.Struct:
-					if field.Type().Name() == "Time" {
-						ApplyTime(&field, v)
-					} else {
-						if reflect.TypeOf(v).Kind() == reflect.Map {
-							FillFieldList(&field, reflect.TypeOf(field.Interface()), v.(map[string]interface{}))
-						}
-					}
-				case reflect.Ptr:
-					ApplyPtr(&field, v)
-					continue
-				default:
-					continue
-				}
-			}
-		}
-	}
-}
-
-func CallMethod2(controller interface{}, method reflect.Method, params map[string]interface{}, context *RestServerContext) (result reflect.Value, err error) {
-	function := reflect.ValueOf(method.Func.Interface())
-	functionType := reflect.TypeOf(method.Func.Interface())
-
-	// No args
-	if functionType.NumIn() == 1 {
-		in := make([]reflect.Value, 1)
-		in[0] = reflect.ValueOf(controller)
-		r := function.Call(in)
-		if len(r) > 0 {
-			result = r[0]
-		} else {
-			result = reflect.ValueOf("")
-		}
-
-		return
-	}
-
-	firstArgument := functionType.In(1)
-	args := reflect.New(firstArgument).Interface()
-	argsValue := reflect.ValueOf(args).Elem()
-	argsType := reflect.TypeOf(args).Elem()
-
-	// If first args is string
-	if argsValue.Kind() == reflect.Struct {
-		// Fill context
-		contextField := argsValue.FieldByName("Context")
-		if contextField.IsValid() {
-			if contextField.CanSet() {
-				contextField.Set(reflect.ValueOf(context))
-			}
-		}
-
-		// Go over fields
-		FillFieldList(&argsValue, argsType, params)
-	}
-
-	// Call function
-	in := make([]reflect.Value, 2)
-	in[0] = reflect.ValueOf(controller)
-	in[1] = reflect.ValueOf(argsValue.Interface())
-	r := function.Call(in)
-	if len(r) > 0 {
-		result = r[0]
-	} else {
-		result = reflect.ValueOf("")
-	}
-
-	return
-}
-
-func CallMethod(controller interface{}, methodName string, params map[string]interface{}, context *RestServerContext) (result reflect.Value, err error) {
-	fooType := reflect.TypeOf(controller)
-	for i := 0; i < fooType.NumMethod(); i++ {
-		method := fooType.Method(i)
-		if methodName == method.Name {
-			result, err = CallMethod2(controller, method, params, context)
-			return
-		}
-	}
-	Fatal(500, ErrorType.NotFound, "", "Method not found")
-	return
-}
+//go:embed template/ws.js
+var WsJs string
 
 func VirtualFileHandler(rw http.ResponseWriter, r *http.Request, fs VirtualFs) {
 	defer ErrorMessage(rw, r)
@@ -381,7 +230,7 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 	// Response
 	rw.Header().Add("Content-Type", context.ContentType)
 	if context.ContentType == "application/json" {
-		responseData := RestResponse{Status: true}
+		responseData := RestServerResponse{Status: true}
 		responseData.Response = response.Interface()
 		finalData, _ := json.Marshal(responseData)
 		fmt.Fprintf(rw, "%+v", string(finalData))
@@ -390,33 +239,49 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 	}
 }
 
-/*func ReturnFile(path string) {
-	file := getFile(path)
-	if file == nil {
-		Error(404, ErrorType.NotFound, "", "File not found")
-	} else {
-		stat, _ := file.Stat()
+func WsHandler(conn *websocket.Conn, messageType int, message []byte, controller map[string]interface{}) {
+	// Parse message
+	var msg WsMessage
+	json.Unmarshal(message, &msg)
 
-		// Get file header
-		file.Seek(0, 0)
-		buffer := make([]byte, 512)
-		_, err := file.Read(buffer)
-		if err != nil {
-			Error(500, ErrorType.Unknown, "", "Can't read file")
-		}
+	// Defer recover
+	defer ErrorWsMessage(conn, messageType, msg.Id)
 
-		// Detect content type
-		contentType := http.DetectContentType(buffer)
-
-		// Set headers
-		rw.Header().Add("Content-Type", contentType)
-		rw.Header().Add("Content-Length", fmt.Sprintf("%d", stat.Size()))
-
-		// Stream file
-		file.Seek(0, 0)
-		io.Copy(rw, file)
+	// Parse path
+	methodPath := strings.Split(msg.Method, "/")
+	if len(methodPath) < 2 {
+		return
 	}
-}*/
+	methodName := methodPath[1]
+
+	args := make(map[string]interface{})
+
+	context := new(RestServerContext)
+	json.Unmarshal(msg.Args, &args)
+
+	response, err := CallMethod(controller["/ws"].(map[string]interface{})[methodPath[0]], "Ws"+strings.Title(methodName), args, context)
+	var realOut []byte
+	if err != nil {
+		// Write message back
+		realOut, _ = json.Marshal(WsResponse{
+			Id:       msg.Id,
+			Status:   false,
+			Response: err.Error(),
+		})
+	} else {
+		// Write message back
+		realOut, _ = json.Marshal(WsResponse{
+			Id:       msg.Id,
+			Status:   true,
+			Response: response.Interface(),
+		})
+	}
+
+	err = conn.WriteMessage(messageType, realOut)
+	if err != nil {
+		panic("Error during message writing:" + err.Error())
+	}
+}
 
 func Start(addr string, routers map[string]interface{}) {
 	fmt.Printf("Starting server at " + addr + "\n")
@@ -432,6 +297,7 @@ func Start(addr string, routers map[string]interface{}) {
 
 	DocRouter = routers
 
+	// Main
 	http.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
 		var route interface{}
 		most := ""
@@ -471,6 +337,37 @@ func Start(addr string, routers map[string]interface{}) {
 			controller := route.(map[string]interface{})
 			ApiHandler(rw, r, most, controller)
 			return
+		}
+	})
+
+	// Websocket
+	var upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+	}
+	http.HandleFunc("/__ws.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "text/javascript; charset=utf-8")
+		w.Write([]byte(strings.ReplaceAll(WsJs, "%HOST%", addr)))
+	})
+	http.HandleFunc("/__ws", func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		defer conn.Close()
+
+		// The event loop
+		for {
+			// Read message
+			messageType, message, err := conn.ReadMessage()
+			if err != nil {
+				log.Println("Error during message reading:", err)
+				break
+			}
+
+			// Handle
+			WsHandler(conn, messageType, message, routers)
 		}
 	})
 

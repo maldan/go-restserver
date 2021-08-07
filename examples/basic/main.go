@@ -23,6 +23,15 @@ type FuckArgs struct {
 	WeekendPricePerDay string
 }
 
+type AAArgs struct {
+	A int `json:"a"`
+	B int `json:"b"`
+}
+
+func (u TestApi) WsSasageo(args AAArgs) int {
+	return args.A + args.B
+}
+
 func (u TestApi) GetSasageo(args XArgs) string {
 	return fmt.Sprintf("%#+v", args)
 }
@@ -36,6 +45,9 @@ func main() {
 	restserver.Start("127.0.0.1:9512", map[string]interface{}{
 		"/": "/",
 		"/api": map[string]interface{}{
+			"test": new(TestApi),
+		},
+		"/ws": map[string]interface{}{
 			"test": new(TestApi),
 		},
 	})
