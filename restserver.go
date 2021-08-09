@@ -220,6 +220,8 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 		if context.ContentType == "" {
 			contentType, _ := GetMimeByFile(file)
 			rw.Header().Add("Content-Type", contentType)
+		} else {
+			rw.Header().Add("Content-Type", context.ContentType)
 		}
 
 		// Stream file
