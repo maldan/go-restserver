@@ -2,14 +2,23 @@ const RestWS = {
   ws: null,
   response: {},
   error: {},
+  eventList: {},
   connect() {
     this.ws = new WebSocket(`ws://%HOST%/__ws`);
     this.ws.onmessage = (data) => {
       const msg = JSON.parse(data.data);
-      if (msg.status) {
-        this.response[msg.id](msg.response);
+      if (msg.event) {
+        if (this.eventList[msg.event]) {
+          for (let i = 0; i < this.eventList[msg.event].length; i++) {
+            this.eventList[msg.event][i](msg.response);
+          }
+        }
       } else {
-        this.error[msg.id](msg.response);
+        if (msg.status) {
+          this.response[msg.id](msg.response);
+        } else {
+          this.error[msg.id](msg.response);
+        }
       }
     };
     this.ws.onclose = () => {
@@ -33,6 +42,12 @@ const RestWS = {
       this.response[id] = resolve;
       this.error[id] = reject;
     });
+  },
+  on(event, fn) {
+    if (!this.eventList[event]) {
+      this.eventList[event] = [];
+    }
+    this.eventList[event].push(fn);
   },
 };
 

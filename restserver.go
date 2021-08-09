@@ -11,6 +11,7 @@ import (
 	"path"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -18,6 +19,8 @@ import (
 
 //go:embed template/ws.js
 var WsJs string
+
+var WsClientList = sync.Map{}
 
 func VirtualFileHandler(rw http.ResponseWriter, r *http.Request, fs VirtualFs) {
 	defer ErrorMessage(rw, r)
@@ -204,7 +207,6 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 
 	// Call method
 	context := new(RestServerContext)
-	context.ContentType = "application/json"
 	context.StatusCode = 200
 
 	response, err := CallMethod(controller[controllerName], strings.Title(strings.ToLower(r.Method))+strings.Title(methodName), args, context)
@@ -213,8 +215,12 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 	if fmt.Sprintf("%v", response.Type()) == "*os.File" {
 		file := response.Interface().(*os.File)
 		defer file.Close()
-		contentType, _ := GetMimeByFile(file)
-		rw.Header().Add("Content-Type", contentType)
+
+		// Detect content type
+		if context.ContentType == "" {
+			contentType, _ := GetMimeByFile(file)
+			rw.Header().Add("Content-Type", contentType)
+		}
 
 		// Stream file
 		file.Seek(0, 0)
@@ -228,6 +234,9 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 	}
 
 	// Response
+	if context.ContentType == "" {
+		context.ContentType = "application/json"
+	}
 	rw.Header().Add("Content-Type", context.ContentType)
 	if context.ContentType == "application/json" {
 		responseData := RestServerResponse{Status: true}
@@ -239,7 +248,7 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 	}
 }
 
-func WsHandler(conn *websocket.Conn, messageType int, message []byte, controller map[string]interface{}) {
+func WsHandler(clientId string, conn *websocket.Conn, messageType int, message []byte, controller map[string]interface{}) {
 	// Parse message
 	var msg WsMessage
 	json.Unmarshal(message, &msg)
@@ -258,6 +267,7 @@ func WsHandler(conn *websocket.Conn, messageType int, message []byte, controller
 
 	context := new(RestServerContext)
 	json.Unmarshal(msg.Args, &args)
+	args["clientId"] = clientId
 
 	response, err := CallMethod(controller["/ws"].(map[string]interface{})[methodPath[0]], "Ws"+strings.Title(methodName), args, context)
 	var realOut []byte
@@ -344,6 +354,10 @@ func Start(addr string, routers map[string]interface{}) {
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+		EnableCompression: true,
 	}
 	http.HandleFunc("/__ws.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "text/javascript; charset=utf-8")
@@ -357,6 +371,10 @@ func Start(addr string, routers map[string]interface{}) {
 		}
 		defer conn.Close()
 
+		// Add client to list
+		clientId := UID(12)
+		WsClientList.Store(clientId, WsClient{Id: clientId, Connection: conn})
+
 		// The event loop
 		for {
 			// Read message
@@ -367,8 +385,11 @@ func Start(addr string, routers map[string]interface{}) {
 			}
 
 			// Handle
-			WsHandler(conn, messageType, message, routers)
+			WsHandler(clientId, conn, messageType, message, routers)
 		}
+
+		// Remove client from list
+		WsClientList.Delete(clientId)
 	})
 
 	// Start server

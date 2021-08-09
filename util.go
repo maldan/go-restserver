@@ -1,8 +1,10 @@
 package restserver
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"os"
 	"reflect"
 	"strconv"
@@ -109,42 +111,42 @@ func ApplySlice(field *reflect.Value, v interface{}) {
 	len := reflect.ValueOf(v).Len()
 	kind := reflect.ValueOf(field)
 
+	// Raw message
 	if fmt.Sprintf("%v", kind) == "<json.RawMessage Value>" {
 		stringJson, err := json.Marshal(v.(map[string]interface{}))
 		if err == nil {
 			field.Set(reflect.ValueOf(json.RawMessage(stringJson)))
 		}
+		return
 	}
 
-	/*
-		itemslice := reflect.SliceOf(field.Type())
-		rv := reflect.New(itemslice)
-		field.Set(rv.Elem())
-	*/
-
+	// Bytes
 	if fmt.Sprintf("%v", kind) == "<[]uint8 Value>" {
 		slice := make([]byte, 0)
 		for i := 0; i < len; i++ {
 			slice = append(slice, reflect.ValueOf(v).Index(i).Interface().(byte))
 		}
 		field.Set(reflect.ValueOf(slice))
+		return
 	}
 
+	// Bytes
 	if fmt.Sprintf("%v", kind) == "<[][]uint8 Value>" {
 		slice := make([][]byte, 0)
 		for i := 0; i < len; i++ {
 			slice = append(slice, reflect.ValueOf(v).Index(i).Interface().([]byte))
 		}
 		field.Set(reflect.ValueOf(slice))
+		return
 	}
 
-	if fmt.Sprintf("%v", kind) == "<[]string Value>" {
-		slice := make([]string, 0)
-		for i := 0; i < len; i++ {
-			slice = append(slice, fmt.Sprintf("%v", reflect.ValueOf(v).Index(i)))
-		}
-		field.Set(reflect.ValueOf(slice))
+	// Fill other slice
+	slice := reflect.MakeSlice(field.Type(), len, len)
+	for i := 0; i < len; i++ {
+		index := slice.Index(i)
+		index.Set(reflect.ValueOf(v).Index(i).Elem().Convert(index.Type()))
 	}
+	field.Set(slice)
 }
 
 func ApplyTime(field *reflect.Value, v interface{}) {
@@ -179,4 +181,19 @@ func ApplyPtr(field *reflect.Value, v interface{}) {
 	if reflect.TypeOf(v).Kind() == reflect.Map {
 		FillFieldList(&x, field.Elem().Type(), v.(map[string]interface{}))
 	}
+}
+
+func UID(size int) string {
+	var a = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+	var al = len(a)
+	var b = big.NewInt(1_000_000_000_000_000)
+	out := make([]byte, size)
+	t := time.Now().Unix() + int64(os.Getpid())
+
+	for i := 0; i < size; i++ {
+		num, _ := rand.Int(rand.Reader, b)
+		out[i] = a[int(num.Int64()+t)%al]
+	}
+
+	return string(out)
 }
