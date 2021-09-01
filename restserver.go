@@ -1,7 +1,9 @@
 package restserver
 
 import (
+	"bytes"
 	_ "embed"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -253,7 +255,16 @@ func ApiHandler(rw http.ResponseWriter, r *http.Request, prefix string, controll
 func WsHandler(clientId string, conn *websocket.Conn, messageType int, message []byte, controller map[string]interface{}) {
 	// Parse message
 	var msg WsMessage
-	json.Unmarshal(message, &msg)
+	if messageType == 1 { // str
+		json.Unmarshal(message, &msg)
+	}
+	if messageType == 2 { // bin
+		msg.Id = string(message[0:8])
+		len := binary.BigEndian.Uint16(message[8:10])
+		msg.Method = string(message[10 : 10+len])
+		len2 := binary.BigEndian.Uint32(message[10+len : 10+len+4])
+		msg.Data = message[10+len+4 : 10+len+4+uint16(len2)]
+	}
 
 	// Defer recover
 	defer ErrorWsMessage(conn, messageType, msg.Id)
@@ -265,30 +276,55 @@ func WsHandler(clientId string, conn *websocket.Conn, messageType int, message [
 	}
 	methodName := methodPath[1]
 
+	// Create args and context
 	args := make(map[string]interface{})
-
 	context := new(RestServerContext)
-	json.Unmarshal(msg.Args, &args)
+	if messageType == 1 { // str
+		json.Unmarshal(msg.Args, &args)
+	}
+	if messageType == 2 {
+		args["data"] = msg.Data
+	}
 	args["clientId"] = clientId
 
+	// Call menthod
 	response, err := CallMethod(controller["/ws"].(map[string]interface{})[methodPath[0]], "Ws"+strings.Title(methodName), args, context)
 	var realOut []byte
 	if err != nil {
-		// Write message back
-		realOut, _ = json.Marshal(WsResponse{
-			Id:       msg.Id,
-			Status:   false,
-			Response: err.Error(),
-		})
+		// Write error back
+		if messageType == 1 {
+			realOut, _ = json.Marshal(WsResponse{
+				Id:       msg.Id,
+				Status:   false,
+				Response: err.Error(),
+			})
+		}
+		if messageType == 2 {
+			var buf bytes.Buffer
+			buf.WriteString(msg.Id)
+			buf.WriteByte(0)
+			buf.WriteString(err.Error())
+			realOut = buf.Bytes()
+		}
 	} else {
 		// Write message back
-		realOut, _ = json.Marshal(WsResponse{
-			Id:       msg.Id,
-			Status:   true,
-			Response: response.Interface(),
-		})
+		if messageType == 1 {
+			realOut, _ = json.Marshal(WsResponse{
+				Id:       msg.Id,
+				Status:   true,
+				Response: response.Interface(),
+			})
+		}
+		if messageType == 2 {
+			var buf bytes.Buffer
+			buf.WriteString(msg.Id)
+			buf.WriteByte(1)
+			buf.Write(response.Interface().([]byte))
+			realOut = buf.Bytes()
+		}
 	}
 
+	// Send message
 	err = conn.WriteMessage(messageType, realOut)
 	if err != nil {
 		panic("Error during message writing:" + err.Error())

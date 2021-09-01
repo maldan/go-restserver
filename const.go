@@ -49,6 +49,7 @@ type WsMessage struct {
 	Id     string          `json:"id"`
 	Method string          `json:"method"`
 	Args   json.RawMessage `json:"args"`
+	Data   []byte          `json:"data"`
 }
 
 type WsResponse struct {

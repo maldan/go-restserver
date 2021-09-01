@@ -1,6 +1,7 @@
 package restserver
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -49,12 +50,23 @@ func ErrorWsMessage(conn *websocket.Conn, messageType int, msgId string) {
 			finalData, _ := json.Marshal(responseData)
 			fmt.Fprintf(rw, "%+v", string(finalData))*/
 
-			realOut, _ := json.Marshal(WsResponse{
-				Id:       msgId,
-				Status:   false,
-				Response: fmt.Sprintf("%v", e),
-			})
-			conn.WriteMessage(messageType, realOut)
+			if messageType == 1 {
+				realOut, _ := json.Marshal(WsResponse{
+					Id:       msgId,
+					Status:   false,
+					Response: fmt.Sprintf("%v", e),
+				})
+				conn.WriteMessage(messageType, realOut)
+			}
+
+			if messageType == 2 {
+				var buf bytes.Buffer
+				buf.WriteString(msgId)
+				buf.WriteByte(0)
+				buf.WriteString(fmt.Sprintf("%v", e))
+
+				conn.WriteMessage(messageType, buf.Bytes())
+			}
 		}
 	}
 }
