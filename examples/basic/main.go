@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/maldan/go-restserver"
 )
@@ -13,14 +14,9 @@ type XArgs struct {
 }
 
 type FuckArgs struct {
-	Type               string
-	City               string
-	Address            string
-	Area               string
-	SleepingPlaces     string
-	RoomAmount         string
-	PricePerDay        string
-	WeekendPricePerDay string
+	City    string
+	Sos     map[string]string
+	Created time.Time
 }
 
 type AAArgs struct {

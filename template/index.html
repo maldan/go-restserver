@@ -241,7 +241,7 @@
 
             <!-- Int -->
             <input
-              v-if="y.type === 'int' || y.type === 'float32' || y.type === 'float64'"
+              v-else-if="y.type === 'int' || y.type === 'float32' || y.type === 'float64'"
               type="number"
               :placeholder="y.name"
               :value="methodForms[x.type + x.fullPath][y.name]"
@@ -250,8 +250,8 @@
 
             <!-- Time -->
             <input
-              v-if="y.type === 'time.Time'"
-              type="date"
+              v-else-if="y.type === 'time.Time'"
+              type="datetime-local"
               :placeholder="y.name"
               :value="methodForms[x.type + x.fullPath][y.name]"
               @change="methodForms[x.type + x.fullPath][y.name] = $event.target.value"
@@ -259,11 +259,29 @@
 
             <!-- Files -->
             <input
-              v-if="y.type === '[][]uint8'"
+              v-else-if="y.type === '[][]uint8'"
               type="file"
               multiple
               :placeholder="y.name"
               @change="methodForms[x.type + x.fullPath][y.name] = $event.target.files"
+            />
+
+            <!-- Map -->
+            <input
+              v-else-if="y.type === 'map[string]string'"
+              type="text"
+              :placeholder="y.name"
+              :value="JSON.stringify(methodForms[x.type + x.fullPath][y.name])"
+              @change="methodForms[x.type + x.fullPath][y.name] = JSON.parse($event.target.value)"
+            />
+
+            <!-- Default -->
+            <input
+              v-else=""
+              type="text"
+              :placeholder="y.name"
+              :value="methodForms[x.type + x.fullPath][y.name]"
+              @change="methodForms[x.type + x.fullPath][y.name] = $event.target.value"
             />
           </div>
           <button @click="execute(x.type, x.fullPath)">Execute</button>

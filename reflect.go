@@ -87,6 +87,8 @@ func FillFieldList(s *reflect.Value, ss reflect.Type, params map[string]interfac
 				case reflect.Ptr:
 					ApplyPtr(&field, v)
 					continue
+				case reflect.Map:
+					ApplyMap(&field, v)
 				default:
 					continue
 				}

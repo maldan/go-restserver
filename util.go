@@ -190,6 +190,17 @@ func ApplyPtr(field *reflect.Value, v interface{}) {
 	}
 }
 
+func ApplyMap(field *reflect.Value, v interface{}) {
+	mm := reflect.MakeMap(field.Type())
+	iter := reflect.ValueOf(v).MapRange()
+	for iter.Next() {
+		k := iter.Key()
+		v := iter.Value().Elem()
+		mm.SetMapIndex(k, v)
+	}
+	field.Set(mm)
+}
+
 func UID(size int) string {
 	var a = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
 	var al = len(a)
