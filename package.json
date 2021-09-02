@@ -1,6 +1,6 @@
 {
   "name": "restserver",
-  "version": "1.2.11",
+  "version": "1.2.12",
   "description": "Go Rest Server",
   "main": "index.js",
   "keywords": [],
