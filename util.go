@@ -159,6 +159,13 @@ func ApplyTime(field *reflect.Value, v interface{}) {
 		return
 	}
 
+	t1, err = time.Parse("2006-01-02T15:04:05", v.(string))
+	if err == nil {
+		t1 = time.Date(t1.Year(), t1.Month(), t1.Day(), t1.Hour(), t1.Minute(), t1.Second(), t.Nanosecond(), t.Location())
+		field.Set(reflect.ValueOf(t1))
+		return
+	}
+
 	t1, err = time.Parse("2006-01-02 15:04:05", v.(string))
 	if err == nil {
 		t1 = time.Date(t1.Year(), t1.Month(), t1.Day(), t1.Hour(), t1.Minute(), t1.Second(), t.Nanosecond(), t.Location())
